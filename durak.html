@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Дурак онлайн</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif; user-select: none;
+    background: radial-gradient(ellipse at 50% 40%, #4a7ab5 0%, #3a6396 55%, #2c4c74 100%);
+    color: #fff; position: relative;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .25;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 2px, transparent 2px 4px),
+                      repeating-linear-gradient(-45deg, rgba(0,0,0,.02) 0 2px, transparent 2px 4px);
+  }
+
+  /* ===== МЕНЮ ===== */
+  #screenStart {
+    position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+    background: radial-gradient(ellipse at 50% 40%, #4a7ab5 0%, #2c4c74 100%);
+  }
+  #screenStart h1 { font-size: 34px; text-shadow: 0 3px 8px rgba(0,0,0,.4); }
+  #screenStart p { color: #cfe0f5; font-size: 14px; margin-bottom: 10px; text-align: center; }
+  .menu-btn {
+    width: min(300px, 80vw); padding: 15px; border: none; border-radius: 14px;
+    font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit;
+    background: linear-gradient(180deg, #f7d36b, #e0a52e); color: #4a2f05;
+    box-shadow: 0 4px 0 #9c6f14, 0 8px 18px rgba(0,0,0,.35); transition: transform .1s;
+  }
+  .menu-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #9c6f14; }
+  .menu-btn.gray { background: linear-gradient(180deg,#aab8cf,#7d8fae); color:#1c2740; box-shadow:0 4px 0 #55627e,0 8px 18px rgba(0,0,0,.35); }
+  .code-input {
+    width: min(300px, 80vw); padding: 14px; border-radius: 14px; text-align: center;
+    font-size: 26px; letter-spacing: 10px; text-transform: uppercase;
+    border: 2px solid rgba(255,255,255,.3); background: rgba(0,0,0,.25); color: #fff; font-family: inherit; outline: none;
+  }
+  .code-big {
+    font-size: 52px; font-weight: 800; letter-spacing: 14px; text-align: center;
+    color: #ffd94d; margin: 10px 0; font-family: 'Consolas', monospace; text-shadow: 0 3px 10px rgba(0,0,0,.5);
+  }
+  #screenLobby {
+    position: fixed; inset: 0; z-index: 40; display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    background: radial-gradient(ellipse at 50% 40%, #4a7ab5 0%, #2c4c74 100%);
+  }
+  .player-row {
+    display: flex; justify-content: space-between; align-items: center; width: min(300px, 80vw);
+    background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 12px; padding: 10px 16px; font-size: 15px;
+  }
+
+  /* ===== АВАТАРЫ ===== */
+  .avatar { position: absolute; z-index: 5; width: 58px; text-align: center; }
+  .avatar .pic {
+    width: 46px; height: 46px; border-radius: 8px; margin: 0 auto;
+    border: 2px solid #ffd94d; box-shadow: 0 2px 8px rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, #7c5cbf, #4a2f8f);
+  }
+  .avatar.active .pic { border-color: #ff4d4d; box-shadow: 0 0 12px rgba(255,80,80,.8); }
+  .avatar .nm { font-size: 11px; margin-top: 3px; text-shadow: 0 1px 3px rgba(0,0,0,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar .cnt {
+    font-size: 11px; background: rgba(0,0,0,.45); border-radius: 10px;
+    display: inline-block; padding: 1px 8px; margin-top: 2px;
+  }
+  .opp-cards { display: flex; justify-content: center; margin-top: 4px; height: 22px; }
+  .opp-cards .mini {
+    width: 14px; height: 22px; border-radius: 3px; margin-left: -9px;
+    background: repeating-linear-gradient(45deg, #b03a2e, #b03a2e 4px, #8e2b20 4px, #8e2b20 8px);
+    border: 1px solid #641d15; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+  .opp-cards .mini:first-child { margin-left: 0; }
+
+  /* ===== КОЛОДА И СБРОС ===== */
+  .deck-spot { position: absolute; right: 10px; top: 38%; z-index: 4; width: 104px; height: 146px; }
+  .deck-card {
+    width: 94px; height: 136px; border-radius: 11px; position: absolute; left: 0; top: 0;
+    background: repeating-linear-gradient(45deg, #b03a2e, #b03a2e 7px, #8e2b20 7px, #8e2b20 14px);
+    border: 3px solid #f2e8d5; box-shadow: 0 3px 10px rgba(0,0,0,.5);
+  }
+  .deck-card.trump {
+    background: linear-gradient(160deg, #fffdf5, #f3ecd8); color: #1a1a1a;
+    border-color: #e8dfc8;
+  }
+  .deck-card.trump .r { position: absolute; top: 8px; left: 10px; font-weight: 800; font-size: 34px; }
+  .deck-card.trump .s { position: absolute; top: 48px; left: 10px; font-size: 40px; }
+  .deck-card.trump .s2 { position: absolute; bottom: 8px; right: 10px; font-size: 34px; transform: rotate(180deg); }
+  .deck-count {
+    position: absolute; right: 112px; top: 46px; font-size: 14px; color: #fff;
+    background: rgba(0,0,0,.5); border-radius: 12px; padding: 4px 12px; white-space: nowrap;
+  }
+  .drop-pile { position: absolute; left: -104px; top: 4px; width: 94px; height: 136px; }
+  .drop-pile .pile-card {
+    width: 94px; height: 136px; border-radius: 11px; position: absolute; left: 0; top: 0;
+    background: repeating-linear-gradient(45deg, #7ea8c4, #7ea8c4 6px, #5f89a6 6px, #5f89a6 12px);
+    border: 3px solid #f2e8d5; box-shadow: 0 2px 7px rgba(0,0,0,.45);
+  }
+  .drop-count {
+    position: absolute; left: -104px; top: -34px; font-size: 13px; color: #e8f0ff;
+    background: rgba(0,0,0,.4); border-radius: 10px; padding: 3px 10px; white-space: nowrap;
+  }
+  #trumpBanner {
+    position: absolute; top: 8px; right: 12px; z-index: 9;
+    background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 12px; padding: 6px 14px; font-size: 16px; font-weight: 800;
+  }
+  #trumpBanner .ts { font-size: 20px; }
+
+  /* ===== КАРТЫ ===== */
+  .card {
+    width: 86px; height: 124px; border-radius: 10px; background: #fdfcf8;
+    color: #1a1a1a; position: relative; box-shadow: 0 3px 10px rgba(0,0,0,.5);
+    border: 1px solid #d8d4c8; flex-shrink: 0;
+  }
+  .card .corner {
+    position: absolute; top: 6px; left: 8px; text-align: center;
+    font-weight: 800; font-size: 24px; line-height: 1;
+  }
+  .card .corner .s { font-size: 20px; display: block; margin-top: 1px; }
+  .card .big {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 34px; font-weight: 800;
+  }
+  .card .big .bs { font-size: 30px; margin-left: 4px; }
+  .card.red { color: #c0392b; }
+
+  #tableZone {
+    position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%);
+    display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+    max-width: 92vw; z-index: 6; padding: 10px; border-radius: 14px;
+    transition: background .2s, box-shadow .2s;
+  }
+  #tableZone.hovered { background: rgba(125,255,155,.10); box-shadow: inset 0 0 0 3px #7dff9b; }
+  .pair { position: relative; width: 84px; height: 112px; border-radius: 8px; }
+  .pair.hovered { box-shadow: inset 0 0 0 3px #7dff9b, 0 0 16px rgba(125,255,155,.6); }
+  .pair.new { animation: pairIn .35s cubic-bezier(.2,.8,.3,1.1); }
+  @keyframes pairIn {
+    from { transform: translateY(70px) scale(.85); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .pair .tcard {
+    width: 74px; height: 106px; border-radius: 9px; background: #fdfcf8;
+    position: absolute; left: 0; top: 0; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    color: #1a1a1a; border: 1px solid #d8d4c8;
+  }
+  .pair .tcard.d { left: 22px; top: 22px; animation: coverIn .3s cubic-bezier(.2,.8,.3,1.15); }
+  @keyframes coverIn {
+    from { transform: translateY(-46px) rotate(8deg) scale(.9); opacity: 0; }
+    to   { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+  }
+  .pair .tcard .r { position: absolute; top: 5px; left: 7px; font-weight: 800; font-size: 21px; line-height: 1; }
+  .pair .tcard .s { position: absolute; top: 27px; left: 7px; font-size: 22px; line-height: 1; }
+  .pair .tcard.red { color: #c0392b; }
+
+  #handZone { position: absolute; bottom: 70px; left: 0; right: 0; height: 138px; z-index: 8; }
+  #handZone .card {
+    position: absolute; bottom: 0; transform-origin: 50% 130%; transition: opacity .15s;
+    touch-action: none; cursor: grab;
+  }
+  #handZone .card.dragging { opacity: .35; }
+
+  #actionBar {
+    position: absolute; bottom: 8px; left: 0; right: 0; z-index: 10;
+    display: flex; justify-content: center; gap: 12px;
+  }
+  .act-btn {
+    border: none; border-radius: 12px; padding: 12px 26px; font-size: 16px;
+    font-weight: 800; cursor: pointer; font-family: inherit; color: #4a2f05;
+    background: linear-gradient(180deg, #f7d36b, #e0a52e);
+    box-shadow: 0 4px 0 #9c6f14, 0 6px 14px rgba(0,0,0,.35);
+    transition: transform .1s, box-shadow .1s;
+  }
+  .act-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #9c6f14; }
+  .act-btn.take { background: linear-gradient(180deg, #8ee08a, #4caf50); color: #143d17; box-shadow: 0 4px 0 #2e7d32, 0 6px 14px rgba(0,0,0,.35); }
+
+  #statusLine {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.45); border-radius: 14px; padding: 6px 16px;
+    font-size: 14px; z-index: 9; white-space: nowrap; max-width: 94vw; overflow: hidden;
+  }
+  #statusLine b { color: #ffd94d; }
+
+  .flash {
+    position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%);
+    background: rgba(20,30,50,.92); padding: 10px 18px; border-radius: 12px;
+    font-size: 14px; z-index: 60; white-space: nowrap; pointer-events: none;
+  }
+
+  #conn {
+    position: fixed; bottom: 6px; right: 8px; padding: 3px 10px; border-radius: 14px;
+    font-size: 12px; background: rgba(0,0,0,.5); color: #fff; z-index: 99;
+  }
+
+  #endOverlay {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(10,20,40,.85); z-index: 70;
+  }
+  #endOverlay.show { display: flex; }
+  .end-card { background: #2c4c74; border: 2px solid #ffd94d; border-radius: 18px; padding: 28px; text-align: center; width: min(320px, 88vw); }
+  .end-card .big { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+  .end-card .sub2 { color: #cfe0f5; font-size: 14px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div id="conn">⏳</div>
+
+<div id="screenStart">
+  <h1>🃏 Дурак онлайн</h1>
+  <p>Подкидной с друзьями в Telegram</p>
+  <button class="menu-btn" onclick="createRoom()">Создать комнату</button>
+  <input class="code-input" id="joinCode" maxlength="4" placeholder="КОД">
+  <button class="menu-btn" onclick="joinRoom()">Войти по коду</button>
+</div>
+
+<div id="screenLobby">
+  <h1 style="font-size:26px">Комната</h1>
+  <p style="color:#cfe0f5;font-size:14px">Скинь код друзьям:</p>
+  <div class="code-big" id="roomCode">----</div>
+  <div id="lobbyPlayers" style="display:flex;flex-direction:column;gap:8px"></div>
+  <button class="menu-btn" id="startBtn" onclick="startGame()">Начать игру</button>
+  <div style="color:#cfe0f5;font-size:13px" id="startHint"></div>
+  <button class="menu-btn gray" onclick="leaveRoom()">Выйти из комнаты</button>
+</div>
+
+<div id="tableWrap" style="display:none">
+  <div id="statusLine"></div>
+  <div id="trumpBanner"></div>
+  <div id="avatars"></div>
+  <div id="deckSpot" class="deck-spot"></div>
+  <div id="tableZone"></div>
+  <div id="handZone"></div>
+  <div id="actionBar"></div>
+</div>
+
+<div id="endOverlay">
+  <div class="end-card">
+    <div class="big" id="endText"></div>
+    <div class="sub2" id="endSub"></div>
+    <button class="menu-btn" id="rematchBtn" onclick="rematch()">Новая партия</button>
+    <div style="color:#cfe0f5;font-size:13px" id="rematchHint"></div>
+    <button class="menu-btn gray" onclick="leaveRoom()">Выйти в меню</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ===== TELEGRAM =====
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
+function haptic(k){
+  if(!tg||!tg.HapticFeedback) return;
+  try{ k==='ok'?tg.HapticFeedback.notificationOccurred('success'):k==='err'?tg.HapticFeedback.notificationOccurred('error'):tg.HapticFeedback.impactOccurred('light'); }catch(e){}
+}
+
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyB38gm-D46vKptbzwXE7mVsxWA9S36NCww",
+  authDomain: "telnumber-b4e4d.firebaseapp.com",
+  databaseURL: "https://telnumber-b4e4d-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "telnumber-b4e4d",
+  appId: "1:578107210609:web:712b0fcbfd5992fe6594d0"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const connEl = document.getElementById('conn');
+db.ref('.info/connected').on('value', s => {
+  connEl.textContent = s.val() ? '🟢' : '🔴';
+  connEl.style.background = s.val() ? 'rgba(0,120,60,.7)' : 'rgba(180,30,30,.7)';
+});
+const ME = (()=>{
+  const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+  return { id: String(u ? u.id : 'g'+Math.floor(Math.random()*1e9)), name: (u && u.first_name) ? u.first_name : 'Гость' };
+})();
+
+// ===== КАРТЫ =====
+const RANKS=['6','7','8','9','0','J','Q','K','A'];
+const RVAL={'6':6,'7':7,'8':8,'9':9,'0':10,'J':11,'Q':12,'K':13,'A':14};
+const SUITS=['s','h','d','c'];
+const SUIT_CH={'s':'♠','h':'♥','d':'♦','c':'♣'};
+const SUIT_RED={'h':1,'d':1};
+const RU_LETTER={'J':'В','Q':'Д','K':'К','A':'Т'};
+const rname=c=>c[0]==='0'?'10':c[0];
+const suitOf=c=>c[1];
+const valOf=c=>RVAL[c[0]];
+const isRed=c=>SUIT_RED[suitOf(c)];
+const isFace=c=>'JQKA'.includes(c[0]);
+function beats(def,att,trump){
+  if(suitOf(def)===suitOf(att)) return valOf(def)>valOf(att);
+  return suitOf(def)===trump && suitOf(att)!==trump;
+}
+function bigCard(c, extra, idx){
+  const center = isFace(c)
+    ? '<div class="big">'+RU_LETTER[c[0]]+'<span class="bs">'+SUIT_CH[suitOf(c)]+'</span></div>'
+    : '<div class="big">'+SUIT_CH[suitOf(c)]+'</div>';
+  return '<div data-idx="'+idx+'" class="card '+(isRed(c)?'red ':'')+(extra||'')+'">'+
+    '<div class="corner">'+rname(c)+'<span class="s">'+SUIT_CH[suitOf(c)]+'</span></div>'+
+    center+'</div>';
+}
+function smallCard(c, extra){
+  return '<div class="tcard '+(isRed(c)?'red ':'')+(extra||'')+'">'+
+    '<div class="r">'+rname(c)+'</div><div class="s">'+SUIT_CH[suitOf(c)]+'</div></div>';
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ===== СОСТОЯНИЕ =====
+let ROOM=null, ST=null, unsub=null, drag=null;
+const $=id=>document.getElementById(id);
+const AV_COLORS=[['#bf5c5c','#8f2f2f'],['#5cb8bf','#2f6f8f'],['#bf9c5c','#8f6f2f']];
+function flash(msg){
+  const el=document.createElement('div');
+  el.className='flash'; el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1900);
+}
+function show(id){
+  ['screenStart','screenLobby','tableWrap'].forEach(s=>$(s).style.display='none');
+  $(id).style.display = id==='screenLobby' ? 'flex' : (id==='screenStart' ? 'flex' : 'block');
+  if(id!=='tableWrap') $('endOverlay').classList.remove('show');
+}
+
+// ===== КОМНАТЫ =====
+function genCode(){
+  const abc='ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let c=''; for(let i=0;i<4;i++) c+=abc[Math.floor(Math.random()*abc.length)];
+  return c;
+}
+function createRoom(){
+  const code=genCode();
+  const ref=db.ref('durak/rooms/'+code);
+  ref.set({ host: ME.id, names:{}, players:[ME.id], phase:'lobby' }).then(()=>{
+    ref.child('names/'+ME.id).set(ME.name);
+    enterRoom(code);
+  });
+}
+function joinRoom(){
+  const code=$('joinCode').value.trim().toUpperCase();
+  if(code.length!==4){ flash('Код из 4 букв'); return; }
+  const ref=db.ref('durak/rooms/'+code);
+  ref.once('value').then(s=>{
+    if(!s.val()){ haptic('err'); flash('Комната не найдена'); return; }
+    ref.child('names/'+ME.id).set(ME.name);
+    ref.child('players').transaction(cur=>{
+      if(!cur) return [ME.id];
+      return cur.includes(ME.id)?cur:cur.concat([ME.id]);
+    });
+    enterRoom(code);
+  });
+}
+function enterRoom(code){
+  ROOM=code;
+  if(unsub) unsub();
+  unsub=db.ref('durak/rooms/'+code).on('value', s=>{
+    ST=s.val();
+    if(!ST){ ROOM=null; show('screenStart'); return; }
+    render();
+  });
+  show('screenLobby');
+}
+function leaveRoom(){
+  if(unsub) unsub();
+  if(ROOM){
+    const ref=db.ref('durak/rooms/'+ROOM);
+    ref.child('names/'+ME.id).remove();
+    ref.child('players').transaction(cur=>(cur||[]).filter(p=>p!==ME.id));
+  }
+  ROOM=null; ST=null;
+  show('screenStart');
+}
+
+// ===== ИГРА: СТАРТ =====
+function buildDeck(){
+  const d=[];
+  for(const s of SUITS) for(const r of RANKS) d.push(r+s);
+  for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
+  return d;
+}
+function startGame(){
+  if(!ST||ST.host!==ME.id) return;
+  const ps=ST.players||[];
+  if(ps.length<2){ flash('Нужно минимум 2 игрока'); return; }
+  const deck=buildDeck();
+  const trumpCard=deck[deck.length-1], trump=suitOf(trumpCard);
+  const hands={}; ps.forEach(p=>hands[p]=deck.splice(0,6));
+  let first=ps[0], best=99;
+  ps.forEach(p=>hands[p].forEach(c=>{ if(suitOf(c)===trump&&valOf(c)<best){best=valOf(c);first=p;} }));
+  db.ref('durak/rooms/'+ROOM).update({
+    phase:'play',
+    game:{ deck:deck, trump:trump, trumpCard:trumpCard, hands:hands,
+           table:[], discard:0, attacker:first, durak:null, seq:0 }
+  });
+}
+function rematch(){ if(ST&&ST.host===ME.id) startGame(); }
+
+// ===== ИГРА: ЛОГИКА =====
+const G=()=>ST.game;
+function activePlayers(){ return (ST.players||[]).filter(p=>(G().hands[p]||[]).length>0); }
+function defender(){ const a=activePlayers(); return a[(a.indexOf(G().attacker)+1)%a.length]; }
+function nextAfter(uid){ const a=activePlayers(); return a[(a.indexOf(uid)+1)%a.length]; }
+function unbeaten(){ return (G().table||[]).map((p,i)=>({p,i})).filter(x=>!x.p.d); }
+function ranksOnTable(){ const r=new Set(); (G().table||[]).forEach(p=>{r.add(p.a[0]); if(p.d)r.add(p.d[0]);}); return r; }
+function sortHand(h){
+  const trump=G().trump;
+  const tw=c=>suitOf(c)===trump?1:0;
+  return h.slice().sort((a,b)=>(tw(a)-tw(b))||valOf(a)-valOf(b));
+}
+
+function tryAttack(card){
+  if(!G()||ST.phase!=='play') return;
+  if(G().attacker!==ME.id) { flash('Сейчас не твой ход'); return; }
+  const t=G().table||[];
+  const def=defender();
+  if(t.length>=6) return;
+  if((G().hands[def]||[]).length<1) return;
+  if(t.length>0){
+    if(unbeaten().length>0) return;
+    if(!ranksOnTable().has(card[0])){ flash('Подкидывать можно только ранги со стола'); return; }
+  }
+  const hand=(G().hands[ME.id]||[]).filter(c=>c!==card);
+  const upd={};
+  upd['game/table']=t.concat([{a:card,d:null}]);
+  upd['game/hands/'+ME.id]=hand;
+  db.ref('durak/rooms/'+ROOM).update(upd);
+  haptic('ok');
+}
+function coverCard(card, idx){
+  if(!G()||ST.phase!=='play') return;
+  const t=G().table||[];
+  const def=defender();
+  if(def!==ME.id){ flash('Сейчас не твой ход'); return; }
+  let x;
+  if(idx!==undefined&&idx!==null){
+    const p=t[idx];
+    if(!p||p.d){ flash('Эта карта уже отбита'); return; }
+    x=beats(card,p.a,G().trump)?idx:null;
+  } else {
+    const un=unbeaten();
+    const found=un.find(u=>beats(card,u.p.a,G().trump));
+    x=found?found.i:null;
+  }
+  if(x===null){ flash('Эта карта не бьёт карту на столе'); return; }
+  const hand=(G().hands[ME.id]||[]).filter(c=>c!==card);
+  const nt=t.slice(); nt[x]={a:t[x].a,d:card};
+  const upd={};
+  upd['game/table']=nt;
+  upd['game/hands/'+ME.id]=hand;
+  db.ref('durak/rooms/'+ROOM).update(upd);
+  haptic('ok');
+}
+function doTake(){
+  if(!G()||ST.phase!=='play') return;
+  if(defender()!==ME.id) return;
+  const t=G().table||[];
+  const cards=[]; t.forEach(p=>{cards.push(p.a); if(p.d)cards.push(p.d);});
+  const hand=(G().hands[ME.id]||[]).concat(cards);
+  const nextAtt=nextAfter(defender());
+  finishRound({ hands:{ [ME.id]: hand }, attacker: nextAtt });
+  haptic('ok');
+}
+function doBito(){
+  if(!G()||ST.phase!=='play') return;
+  if(G().attacker!==ME.id) return;
+  if(unbeaten().length>0) return;
+  const cnt=(G().table||[]).length;
+  finishRound({ discard:(G().discard||0)+cnt, attacker: nextAfter(defender()) });
+  haptic('ok');
+}
+function finishRound(extra){
+  const g=G();
+  const deck=(g.deck||[]).slice();
+  const hands=Object.assign({}, g.hands, extra.hands||{});
+  const atk=extra.attacker, def=defender();
+  const order=[atk,def].concat((ST.players||[]).filter(p=>p!==atk&&p!==def));
+  order.forEach(p=>{
+    const h=(hands[p]||[]).slice();
+    while(h.length<6&&deck.length) h.push(deck.pop());
+    hands[p]=h;
+  });
+  const left=(ST.players||[]).filter(p=>(hands[p]||[]).length>0);
+  const upd={};
+  upd['game/hands']=hands;
+  upd['game/deck']=deck;
+  upd['game/table']=[];
+  upd['game/attacker']=atk;
+  if('discard' in extra) upd['game/discard']=extra.discard;
+  if(left.length<=1){
+    upd['phase']='over';
+    upd['game/durak']=left.length===1?left[0]:null;
+  }
+  db.ref('durak/rooms/'+ROOM).update(upd);
+}
+
+// ===== ПЕРЕТАСКИВАНИЕ =====
+$('handZone').addEventListener('pointerdown', e=>{
+  if(!ST||ST.phase!=='play') return;
+  const el=e.target.closest('.card');
+  if(!el||!el.dataset.idx) return;
+  e.preventDefault();
+  const i=+el.dataset.idx;
+  const hand=sortHand(G().hands[ME.id]||[]);
+  const card=hand[i];
+  if(!card) return;
+  const r=el.getBoundingClientRect();
+  const clone=el.cloneNode(true);
+  clone.style.cssText='position:fixed;z-index:100;margin:0;left:'+r.left+'px;top:'+r.top+'px;'+
+    'width:'+r.width+'px;height:'+r.height+'px;pointer-events:none;transform:rotate(0deg)!important;'+
+    'box-shadow:0 10px 24px rgba(0,0,0,.6);';
+  document.body.appendChild(clone);
+  el.classList.add('dragging');
+  drag={i,card,clone,el,offX:e.clientX-r.left,offY:e.clientY-r.top,moved:false,startX:e.clientX,startY:e.clientY,hover:null};
+});
+window.addEventListener('pointermove', e=>{
+  if(!drag) return;
+  const dx=e.clientX-drag.startX, dy=e.clientY-drag.startY;
+  if(Math.abs(dx)>6||Math.abs(dy)>6) drag.moved=true;
+  if(!drag.moved) return;
+  drag.clone.style.left=(e.clientX-drag.offX)+'px';
+  drag.clone.style.top=(e.clientY-drag.offY)+'px';
+  if(drag.hover) drag.hover.classList.remove('hovered');
+  drag.hover=null;
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  if(!under) return;
+  const pair=under.closest('[data-drop]');
+  if(pair){ pair.classList.add('hovered'); drag.hover=pair; return; }
+  const myTurnAtk=G()&&G().attacker===ME.id;
+  if(myTurnAtk&&under.closest('#tableZone')){ $('tableZone').classList.add('hovered'); drag.hover=$('tableZone'); }
+});
+function endDrag(e, cancelled){
+  if(!drag) return;
+  const d=drag;
+  drag=null;
+  if(d.hover) d.hover.classList.remove('hovered');
+  d.clone.remove();
+  document.querySelectorAll('#handZone .card.dragging').forEach(c=>c.classList.remove('dragging'));
+  if(cancelled||!d.moved) return;
+  const card=d.card;
+  if(!ST||ST.phase!=='play') return;
+  const def=defender();
+  if(def===ME.id&&unbeaten().length>0){
+    if(d.hover&&d.hover.dataset&&d.hover.dataset.drop!==undefined){ coverCard(card,+d.hover.dataset.drop); return; }
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    const pair=under&&under.closest('[data-drop]');
+    if(pair){ coverCard(card,+pair.dataset.drop); return; }
+    coverCard(card);
+    return;
+  }
+  if(G().attacker===ME.id){ tryAttack(card); return; }
+  flash('Сейчас не твой ход');
+}
+window.addEventListener('pointerup', e=>endDrag(e,false));
+window.addEventListener('pointercancel', e=>endDrag(e,true));
+
+// ===== ОТРИСОВКА =====
+function render(){
+  if(!ST) return;
+  if(ST.phase==='lobby'){ show('screenLobby'); renderLobby(); return; }
+  if(ST.phase==='play'){ show('tableWrap'); renderGame(); return; }
+  if(ST.phase==='over'){ show('tableWrap'); renderGame(); renderEnd(); return; }
+}
+function renderLobby(){
+  $('roomCode').textContent=ROOM;
+  const ps=ST.players||[];
+  $('lobbyPlayers').innerHTML=ps.map(p=>
+    '<div class="player-row"><span>'+(ST.host===p?'👑 ':'')+esc(ST.names[p]||'Гость')+'</span><span>'+(p===ME.id?'это ты':'')+'</span></div>'
+  ).join('');
+  const enough=ps.length>=2;
+  $('startBtn').style.display = ST.host===ME.id ? 'block' : 'none';
+  $('startBtn').textContent = enough ? 'Начать игру' : 'Ждём игроков (нужно 2+)';
+  $('startHint').textContent = ST.host===ME.id ? 'Ты хост — начинай!' : 'Ждём, пока хост начнёт игру';
+}
+function renderGame(){
+  const g=G();
+  if(!g) return;
+  const def=defender(), un=unbeaten();
+  const trumpSuit=SUIT_CH[g.trump];
+
+  $('statusLine').innerHTML = un.length>0
+    ? '<b>'+esc(ST.names[def]||'Гость')+'</b> отбивается от <b>'+esc(ST.names[g.attacker]||'Гость')+'</b>'
+    : (g.table.length>0 ? ((g.attacker===ME.id)?'Подкидывай или жми «Бито»':'Ждём <b>'+esc(ST.names[g.attacker]||'Гость')+'</b>…')
+                        : 'Атакует <b>'+esc(ST.names[g.attacker]||'Гость')+'</b>');
+
+  $('trumpBanner').innerHTML='Козырь: <span class="ts">'+trumpSuit+'</span>';
+  $('trumpBanner').style.color=(g.trump==='h'||g.trump==='d')?'#ff9b8f':'#e8f0ff';
+
+  const opps=(ST.players||[]).filter(p=>p!==ME.id);
+  const spots=[
+    {left:'12px', top:'12px'},
+    {left:'50%', top:'12px', transform:'translateX(-50%)'},
+    {right:'12px', top:'12px'}
+  ];
+  $('avatars').innerHTML=opps.map((p,k)=>{
+    const [c1,c2]=AV_COLORS[k%3];
+    const active=(p===g.attacker)||(p===def&&un.length>0);
+    const style=spots[k]||spots[2];
+    const st='left:'+(style.left||'auto')+';right:'+(style.right||'auto')+';top:'+(style.top||'auto')+';'+(style.transform?'transform:'+style.transform+';':'');
+    return '<div class="avatar'+(active?' active':'')+'" style="'+st+'">'+
+      '<div class="pic" style="background:linear-gradient(135deg,'+c1+','+c2+')">'+esc((ST.names[p]||'Г')[0])+'</div>'+
+      '<div class="nm">'+esc(ST.names[p]||'Гость')+'</div>'+
+      '<div class="cnt">🂠 '+(g.hands[p]||[]).length+'</div>'+
+      '<div class="opp-cards">'+(g.hands[p]||[]).map(()=>'<div class="mini"></div>').join('')+'</div>'+
+      '</div>';
+  }).join('');
+
+  $('deckSpot').innerHTML =
+    '<div id="dropPile" class="drop-pile">'+
+      Array.from({length:Math.min(3,Math.ceil((g.discard||0)/2))}).map((_,i)=>{
+        const rots=[-8,5,-2];
+        return '<div class="pile-card" style="transform:rotate('+rots[i%3]+'deg)"></div>';
+      }).join('')+
+    '</div>'+
+    ((g.discard||0)>0?'<div class="drop-count">Сброс: '+g.discard+'</div>':'')+
+    (g.deck.length>1?'<div class="deck-card" style="transform:rotate(-7deg) translate(-8px,6px)"></div>':'')+
+    '<div class="deck-card trump"><div class="r">'+rname(g.trumpCard)+'</div>'+
+    '<div class="s">'+trumpSuit+'</div><div class="s2">'+trumpSuit+'</div></div>'+
+    '<div class="deck-count" style="top:46px">Колода: '+g.deck.length+'</div>';
+
+  $('tableZone').innerHTML=g.table.map((p,i)=>{
+    const drop=(def===ME.id&&un.length>0&&un.some(u=>u.i===i))?' data-drop="'+i+'"':'';
+    let html='<div class="pair"'+drop+'>'+smallCard(p.a);
+    if(p.d) html+=smallCard(p.d,'d');
+    return html+'</div>';
+  }).join('');
+
+  const hand=sortHand(g.hands[ME.id]||[]);
+  const n=hand.length;
+  const cardW=86;
+  const gap=Math.min(96, Math.max(38,(window.innerWidth-100)/Math.max(n,1)));
+  $('handZone').innerHTML=hand.map((c,i)=>{
+    const offset=(i-(n-1)/2)*gap;
+    const rot=(i-(n-1)/2)*4;
+    const lift=Math.abs(i-(n-1)/2)*4;
+    const st='left:50%;margin-left:'+(offset-cardW/2)+'px;transform:rotate('+rot+'deg) translateY('+lift+'px);';
+    return bigCard(c,'',i).replace('<div ','<div style="'+st+'" ');
+  }).join('');
+
+  let bar='';
+  if(def===ME.id&&g.table.length>0) bar+='<button class="act-btn take" onclick="doTake()">Беру ('+g.table.length+')</button>';
+  if(g.attacker===ME.id&&g.table.length>0&&un.length===0) bar+='<button class="act-btn" onclick="doBito()">Бито!</button>';
+  $('actionBar').innerHTML=bar;
+}
+function renderEnd(){
+  const d=G().durak;
+  $('endText').textContent = d ? ('🤡 Дурак: '+(ST.names[d]||'Гость')) : '🤝 Ничья!';
+  $('endSub').textContent = d===ME.id ? 'В следующий раз повезёт :)' : (d ? 'Ты отбился, красавчик!' : 'Все вышли одновременно.');
+  $('rematchBtn').style.display = ST.host===ME.id ? 'block' : 'none';
+  $('rematchHint').textContent = ST.host===ME.id ? '' : 'Новая партия — по кнопке хоста';
+  $('endOverlay').classList.add('show');
+}
+
+show('screenStart');
+</script>
+</body>
+</html>
+
